@@ -1,0 +1,107 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: "Creates a function to shut down EC2 instances that are not tagged with a specific tag/tags"
+Transform: AWS::Serverless-2016-10-31
+
+Parameters:
+  
+  Tags:
+    Type: String
+    Description: A comma delimited list of tag keys that would prevent an instance from being shut down. Values are ignored
+    Default: "KeepRunning"
+
+  MaxAge:
+    Type: String
+    Description: Maximum age in days before instance is shut down
+    Default: 1
+
+
+
+
+Resources:
+
+
+  MaxAgeParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /syso/auto-shutdown/max-age
+      Value: !Ref MaxAge
+      Type: String
+  
+  ShutdownTags:
+    Type: AWS::SSM::Parameter 
+    Properties:
+      Name: /syso/auto-shutdown/tags
+      Value: !Ref Tags
+      Type: String
+
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role 
+    Properties:
+      RoleName: !Sub auto-shutdown-lambda-execution-role-${AWS::Region}
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: !Sub auto-shutdown-lambda-execution-policy-${AWS::Region}
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "ec2:StopInstances"
+                  - "ec2:DescribeTags"
+                  - "ec2:DescribeInstanceStatus"
+                  - "ec2:DescribeInstances"
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - "logs:CreateLogGroup"
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - "ssm:GetParameters"
+                Resource:
+                  - !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/syso/auto-shutdown/*"
+
+  
+  
+  
+  
+  AutoShutDownFunction:
+    Type: AWS::Serverless::Function
+    Properties: 
+      Handler: autoshutdown.handler
+      FunctionName: syso-auto-shutdown-instance-function
+      Runtime: python3.9
+      CodeUri: ./src
+      Timeout: 120
+      Role: !GetAtt LambdaExecutionRole.Arn
+
+
+  ScheduledRuleLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref AutoShutDownFunction
+      SourceArn: !GetAtt ScheduledRule.Arn
+      Principal: events.amazonaws.com
+
+
+  ScheduledRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Rule that triggers the auto-shutdown-tagged-instances lambda
+      ScheduleExpression: cron(0 19 * * ? *)
+      Targets: 
+        - Arn: !GetAtt AutoShutDownFunction.Arn
+          Id: "auto-shutdown-lambda"
+
+
