@@ -14,9 +14,9 @@ Automation that shuts down EC2 instances that are not tagged in a specific way. 
 ### How to install
 * Clone the repository
 * Edit template.yml parameters to fit your needs.
-    ** MaxAge Number of days before instance is shut down
-    ** MainRegionParam: The primary region where you plan to use this. This is where the IAM roles/policies are installed. Once set, do not change as you will get an deployment error. If you want to change it, uninstall the solution and re-install with new region
-    ** Tags: Comma separated list of tag keys that will be used to determine if an instance should stay up or be shutdown. 
+   * MaxAge Number of days before instance is shut down
+   * MainRegionParam: The primary region where you plan to use this. This is where the IAM roles/policies are installed. Once set, do not change as you will get an deployment error. If you want to change it, uninstall the solution and re-install with new region
+   * Tags: Comma separated list of tag keys that will be used to determine if an instance should stay up or be shutdown. 
 * run 'bash deploy.sh'
 * Enter the region you want to install to. If this is the first install you have to use the region you've set as main region in the template. If this has previously been installed to the main region, you can pick any region you want. 
 * Enter the profile you want to use. This is an AWS profile
